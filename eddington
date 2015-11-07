@@ -1,0 +1,73 @@
+#!/bin/bash
+#
+# script name: eddington
+#
+# processes *.gpx files in current working directory
+#             to find eddington number
+#
+#   The GPX files are converted to the KML format. The conversion
+#   calculates the distance of the track. The converted files are
+#   stored in ${HOME}/.eddington-temp. Passing "clean" (w/o quotes)
+#   as first argument will remove them.
+
+# setup temporary storage
+TEMP="${HOME}/.eddington-temp"
+if [ ! -d "$TEMP" ]; then
+  mkdir $TEMP
+fi
+
+if [ "'$1'" == "'clean'" ]; then
+  rm $TEMP/*
+fi
+
+# associative array for accumulating mileage per date
+unset DISTANCE
+declare -A DISTANCE
+
+echo "Processing GPX/KML files..."
+
+for GPX in *.gpx
+do
+  FN=$(basename "$GPX")
+  KML="$TEMP/${FN%.gpx}.kml"
+
+  if [ ! -e "$KML" ]; then
+    echo -n "Converting $GPX... "
+    gpsbabel -t -r -i gpx -f "$GPX" -o kml -F "$KML"
+    if [ $? -eq 0 ]; then
+      echo "Ok"
+    else
+      echo "FAIL"
+      exit 1
+    fi
+  fi;
+
+  # obtain DATE from KML file
+  DATE=$(grep -m1 "Start Time" "$KML" | sed -r 's/.*([1-9][0-9]{3}(-[0-9]{2}){2}).*/\1/')
+  # only count distance measured in miles and discard any in feet
+  DIST=$(grep "Distance" "$KML" | perl -n -e '/\s(\d+\.?\d\ mi?)\s/ && print $1, "\n"')
+
+  if [[ "$DIST" ]]; then
+    DIST="${DIST% mi}"
+    if [[ ${DISTANCE[$DATE]} ]]; then
+      # add to running total for date
+      DISTANCE[$DATE]=$(echo "${DISTANCE[$DATE]} + $DIST" | bc -l)
+    else
+      DISTANCE[$DATE]=$DIST
+    fi
+  fi
+done
+
+echo "Sorting data..."
+# while simultaneously converting to integer
+SORTED=($(printf "%0.f\n" "${DISTANCE[@]}" | sort -rn))
+
+E=0
+for D in "${SORTED[@]}"
+do
+  if [ $E -gt $D ]; then
+    printf "Your Eddington number is: %d\n" $((E - 1))
+    exit
+  fi
+  E=$((E + 1))
+done
