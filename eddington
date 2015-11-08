@@ -45,7 +45,7 @@ do
   # obtain DATE from KML file
   DATE=$(grep -m1 "Start Time" "$KML" | sed -r 's/.*([1-9][0-9]{3}(-[0-9]{2}){2}).*/\1/')
   # only count distance measured in miles and discard any in feet
-  DIST=$(grep "Distance" "$KML" | perl -n -e '/\s(\d+\.?\d\ mi?)\s/ && print $1, "\n"')
+  DIST=$(grep "Distance" "$KML" | perl -n -e '/\s(\d+\.?\d?\ mi)\s/ && print $1, "\n"')
 
   if [[ "$DIST" ]]; then
     DIST="${DIST% mi}"
@@ -62,12 +62,24 @@ echo "Sorting data..."
 # while simultaneously converting to integer
 SORTED=($(printf "%0.f\n" "${DISTANCE[@]}" | sort -rn))
 
+declare -a DAYS
+
 E=0
 for D in "${SORTED[@]}"
 do
   if [ $E -gt $D ]; then
     printf "Your Eddington number is: %d\n" $((E - 1))
-    exit
+    break;
   fi
   E=$((E + 1))
+  DAYS[$D]=$E
 done
+
+
+for D in "${!DAYS[@]}"
+do
+  R=$(($D - ${DAYS[$D]}))
+  echo -n "Completed ${DAYS[$D]} days of $D miles or more." 
+  [[ ${DAYS[$D]} -lt $D ]] && echo " $R more days of $D miles to go." || echo
+done
+
