@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# routes-of-length
+#
+# find routes between a minimum and maximum length
+# to find routes between 12 and 18 miles:
+#   routes-of-length 12 18
+#
+#   The GPX files are converted to the KML format. The conversion
+#   calculates the distance of the track. The converted files are
+#   stored in ${HOME}/.eddington-temp. Passing "clean" (w/o quotes)
+#   as first argument will remove them.
+
+
+DISTMIN=$1
+DISTMAX=$2
+
+# setup temporary storage
+TEMP="${HOME}/.eddington-temp"
+if [ ! -d "$TEMP" ]; then
+  mkdir $TEMP
+fi
+
+if [ "'$1'" == "'clean'" ]; then
+  rm $TEMP/*
+  DISTMIN=$2
+  DISTMAX=$3
+fi
+
+declare -A DISTANCE
+
+case $DISTMIN in
+    ''|*[!0-9]*) echo "Minimum distance '$DISTMIN' not understood"; exit 1 ;;
+    #*) echo good ;;
+esac
+
+case $DISTMAX in
+    ''|*[!0-9]*) echo "Maximum distance '$DISTMAX' not understood"; exit 1 ;;
+    #*) echo good ;;
+esac
+
+
+for GPX in *.gpx
+do
+  FN=$(basename "$GPX")
+  KML="$TEMP/${FN%.gpx}.kml"
+
+  if [ ! -e "$KML" ]; then
+    echo -n "Converting $GPX... "
+    gpsbabel -t -r -i gpx -f "$GPX" -o kml -F "$KML"
+    if [ $? -eq 0 ]; then
+      echo "Ok"
+    else
+      echo "FAIL"
+      exit 1
+    fi
+  fi;
+
+  DIST=$(grep "Distance" "$KML" | perl -n -e '/\s(\d+\.?\d?\ mi)\s/ && print $1, "\n"')
+
+  if [[ "$DIST" ]]; then
+    DIST=$(printf "%0.f\n" ${DIST% mi})
+    if (($DIST>=$DISTMIN && $DIST<=$DISTMAX)); then
+      DISTANCE[$GPX]="$DIST mi -- $GPX"
+    fi
+  fi
+done
+
+printf "%s\n" "${DISTANCE[@]}" | sort -rn
