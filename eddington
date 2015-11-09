@@ -10,6 +10,8 @@
 #   stored in ${HOME}/.eddington-temp. Passing "clean" (w/o quotes)
 #   as first argument will remove them.
 
+VERBOSE=$1
+
 # setup temporary storage
 TEMP="${HOME}/.eddington-temp"
 if [ ! -d "$TEMP" ]; then
@@ -18,6 +20,15 @@ fi
 
 if [ "'$1'" == "'clean'" ]; then
   rm $TEMP/*
+  VERBOSE=$2
+fi
+
+if [[ "'$VERBOSE'" == "'--verbose'" ]]; then
+  VERBOSE="-v"
+fi
+
+if [[ "'$VERBOSE'" != "'-v'" ]]; then
+  unset VERBOSE
 fi
 
 # associative array for accumulating mileage per date
@@ -58,6 +69,17 @@ do
   fi
 done
 
+
+if [[ $VERBOSE ]]; then
+  declare -a ALLDAYS
+  for DATE in "${!DISTANCE[@]}"; do
+    ALLDAYS+=("$(printf "\t%4.1f\t%s" ${DISTANCE[$DATE]} $DATE)")
+  done
+  printf "%s\n" "${ALLDAYS[@]}" | sort -rn
+  exit
+fi
+
+
 echo "Sorting data..."
 # while simultaneously converting to integer
 SORTED=($(printf "%0.f\n" "${DISTANCE[@]}" | sort -rn))
@@ -65,11 +87,19 @@ SORTED=($(printf "%0.f\n" "${DISTANCE[@]}" | sort -rn))
 declare -a DAYS
 
 E=0
+unset EDDINGTON
+
 for D in "${SORTED[@]}"
 do
-  if [ $E -gt $D ]; then
-    printf "Your Eddington number is: %d\n" $((E - 1))
-    break;
+  #if [ $E -gt $D ]; then
+  if (($E >= $D)); then
+    if [[ ! $EDDINGTON ]]; then
+      EDDINGTON=$E
+      printf "Your Eddington number is: %d\n" $E
+      if [[ ! $VERBOSE ]]; then
+        break;
+      fi
+    fi
   fi
   E=$((E + 1))
   DAYS[$D]=$E

@@ -61,9 +61,11 @@ do
   if [[ "$DIST" ]]; then
     DIST=$(printf "%0.f\n" ${DIST% mi})
     if (($DIST>=$DISTMIN && $DIST<=$DISTMAX)); then
-      DISTANCE[$GPX]="$DIST mi -- $GPX"
+      #DISTANCE[$GPX]="$DIST mi -- $GPX"
+      echo "$GPX"
     fi
   fi
 done
 
-printf "%s\n" "${DISTANCE[@]}" | sort -rn
+#printf "%s\n" "${DISTANCE[@]}" | sort -rn
+#echo
